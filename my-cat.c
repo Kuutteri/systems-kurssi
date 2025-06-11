@@ -1,13 +1,3 @@
-/*
-    AI USE STATEMENT
-    Joona Kuutniemi
-    000427816
-
-    I used Geok3 was used for fixing issues I was having.
-
-    Other AI tools were not used.
-
-*/
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -20,7 +10,7 @@ int main(int argc, char *argv[]) {
     while (index < argc) {
         FILE *fp = fopen(argv[index], "r");
         if (fp == NULL) {
-            fprintf(stderr, "wcat: unable to access file\n");
+            printf("wcat: cannot open file\n");
             return 1;
         }
 
