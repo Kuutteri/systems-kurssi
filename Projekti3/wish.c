@@ -12,62 +12,7 @@ void printError() {
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
-// Execute a non built-in command
-void execute_command(char *userInput, char **path, char *outputFile) {
-    pid_t pid = fork();
-    if (pid == -1) {
-        printError();
-        exit(EXIT_FAILURE);
-    } else if (pid == 0) {
-        // Child process
-        if (outputFile != NULL) {
-            // Open the file for writing, create it if it doesn't exist, truncate it if it does
-            int fd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            
-            if (fd == -1) {
-                printError();
-                exit(EXIT_FAILURE);
-            }
-            // Redirect both stdout and stderr to the file
-            dup2(fd, STDOUT_FILENO);
-            dup2(fd, STDERR_FILENO);
-            close(fd);
-        }
-
-        char *args[256];
-        int argIndex = 0;
-
-        // Tokenize userInput to get the command and its arguments
-        char *token = strtok(userInput, " \t");
-        while (token != NULL && argIndex < 255) {
-            args[argIndex++] = token;
-            token = strtok(NULL, " \t");
-        }
-        args[argIndex] = NULL;
-
-        if (args[0] == NULL) {
-            exit(EXIT_FAILURE);
-        }
-
-        // Try to execute the command from each path
-        for (int i = 0; path[i] != NULL; i++) {
-            char command[256];
-            snprintf(command, sizeof(command), "%s/%s", path[i], args[0]);
-            if (access(command, X_OK) == 0) {
-                // Use execv as required by assignment
-                execv(command, args);
-                printError();
-                exit(EXIT_FAILURE);
-            }
-        }
-        // Command not found in any path
-        printError();
-        exit(EXIT_FAILURE);
-    } else {
-        // Parent process - don't wait here for parallel execution
-        // Waiting will be handled by the caller
-    }
-}
+// This function is no longer used - command execution is handled inline
 
 int main(int argc, char *argv[]) {
     char *userInput = NULL;
@@ -76,17 +21,22 @@ int main(int argc, char *argv[]) {
     FILE *input = stdin;
     int batchMode = 0;
 
+    // Check arguments - exit with error if more than 1 argument
+    if (argc > 2) {
+        char error_message[30] = "An error has occurred\n";
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        exit(1);
+    }
+    
     // Check for batch file argument
     if (argc == 2) {
         input = fopen(argv[1], "r");
         if (input == NULL) {
-            printError();
+            char error_message[30] = "An error has occurred\n";
+            write(STDERR_FILENO, error_message, strlen(error_message));
             exit(1);
         }
         batchMode = 1;
-    } else if (argc > 2) {
-        printError();
-        exit(1);
     }
 
     // Main shell loop
@@ -107,8 +57,10 @@ int main(int argc, char *argv[]) {
         // Remove newline character
         userInput[strcspn(userInput, "\n")] = '\0';
 
-        // Skip empty lines
-        if (strlen(userInput) == 0) {
+        // Skip empty lines or lines with only whitespace
+        char *trimmed = userInput;
+        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        if (strlen(trimmed) == 0) {
             continue;
         }
 
@@ -197,9 +149,11 @@ int main(int argc, char *argv[]) {
                     printError();
                 }
             } else if (strcmp(token, "path") == 0) {
-                // Clear existing path
-                for (int j = 0; path[j] != NULL; j++) {
-                    if (j > 0) free(path[j]); // Don't free initial /bin
+                // Clear existing path - need to handle this more carefully
+                // Don't free the initial "/bin" as it's a string literal
+                for (int j = 1; path[j] != NULL; j++) {
+                    free(path[j]);
+                    path[j] = NULL;
                 }
                 
                 // Set new path
