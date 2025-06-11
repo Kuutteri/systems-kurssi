@@ -1,7 +1,7 @@
 /*
     AI USE STATEMENT
     Joona Kuutniemi
-    001119893
+    000427816
 
     I used Geok3 was used for fixing issues I was having.
 
