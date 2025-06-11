@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/wait.h> 
+#include <sys/wait.h>
 #include <fcntl.h>
 
 // Standard error message as required by assignment
@@ -12,28 +12,24 @@ void printError() {
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
-// This function is no longer used - command execution is handled inline
-
 int main(int argc, char *argv[]) {
     char *userInput = NULL;
     size_t len = 0;
-    char *path[256] = {"/bin", NULL}; // Initial path should only contain /bin
+    char *path[256] = {"/bin", NULL}; // Initial path
     FILE *input = stdin;
     int batchMode = 0;
 
-    // Check arguments - exit with error if more than 1 argument
+    // Check arguments
     if (argc > 2) {
-        char error_message[30] = "An error has occurred\n";
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        printError();
         exit(1);
     }
     
-    // Check for batch file argument
+    // Check for batch file
     if (argc == 2) {
         input = fopen(argv[1], "r");
         if (input == NULL) {
-            char error_message[30] = "An error has occurred\n";
-            write(STDERR_FILENO, error_message, strlen(error_message));
+            printError();
             exit(1);
         }
         batchMode = 1;
@@ -41,7 +37,6 @@ int main(int argc, char *argv[]) {
 
     // Main shell loop
     while (1) {
-        // Print prompt only in interactive mode
         if (!batchMode) {
             printf("wish> ");
             fflush(stdout);
@@ -50,14 +45,11 @@ int main(int argc, char *argv[]) {
         // Read input line
         ssize_t read = getline(&userInput, &len, input);
         if (read == -1) {
-            // EOF reached
             break;
         }
 
-        // Remove newline character
+        // Remove newline and trim whitespace
         userInput[strcspn(userInput, "\n")] = '\0';
-
-        // Skip empty lines or lines with only whitespace
         char *trimmed = userInput;
         while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
         if (strlen(trimmed) == 0) {
@@ -76,29 +68,41 @@ int main(int argc, char *argv[]) {
                 redirection++;
             }
             
-            // Check for multiple redirection operators or files
+            // Check for invalid redirection
             if (strlen(redirection) == 0 || strchr(redirection, '>') != NULL) {
                 printError();
                 continue;
             }
             
-            // Extract filename (should be single word)
+            // Extract filename
             char *filename = strtok(redirection, " \t");
             if (filename == NULL || strtok(NULL, " \t") != NULL) {
                 printError();
                 continue;
             }
             outputFile = filename;
+
+            // Check if command exists before redirection
+            char *cmd = userInput;
+            while (*cmd == ' ' || *cmd == '\t') cmd++;
+            if (*cmd == '\0') {
+                printError();
+                continue;
+            }
         }
 
-        // Split input into parallel commands by '&'
+        // Split input into parallel commands
         char *commands[256];
         int commandCount = 0;
         char *inputCopy = strdup(userInput);
+        if (!inputCopy) {
+            printError();
+            continue;
+        }
         char *command = strtok(inputCopy, "&");
         
         while (command != NULL && commandCount < 255) {
-            // Trim leading and trailing whitespace
+            // Trim whitespace
             while (*command == ' ' || *command == '\t') command++;
             char *end = command + strlen(command) - 1;
             while (end > command && (*end == ' ' || *end == '\t')) end--;
@@ -106,19 +110,27 @@ int main(int argc, char *argv[]) {
             
             if (strlen(command) > 0) {
                 commands[commandCount++] = strdup(command);
+                if (!commands[commandCount-1]) {
+                    printError();
+                    break;
+                }
             }
             command = strtok(NULL, "&");
         }
         free(inputCopy);
 
-        // Array to store child process IDs for parallel execution
+        // Array to store child PIDs
         pid_t children[256];
         int childCount = 0;
 
         // Process each command
         for (int i = 0; i < commandCount; i++) {
-            // Tokenize command to get first word
+            // Tokenize command
             char *commandCopy = strdup(commands[i]);
+            if (!commandCopy) {
+                printError();
+                continue;
+            }
             char *token = strtok(commandCopy, " \t");
             
             if (token == NULL) {
@@ -128,17 +140,19 @@ int main(int argc, char *argv[]) {
 
             // Handle built-in commands
             if (strcmp(token, "exit") == 0) {
-                // exit should have no arguments
                 if (strtok(NULL, " \t") != NULL) {
                     printError();
                 } else {
-                    // Clean up and exit
                     for (int j = 0; j < commandCount; j++) {
                         free(commands[j]);
                     }
                     free(commandCopy);
                     free(userInput);
                     if (input != stdin) fclose(input);
+                    // Free path entries (skip "/bin" literal)
+                    for (int j = 1; path[j]; j++) {
+                        free(path[j]);
+                    }
                     exit(0);
                 }
             } else if (strcmp(token, "cd") == 0) {
@@ -149,9 +163,8 @@ int main(int argc, char *argv[]) {
                     printError();
                 }
             } else if (strcmp(token, "path") == 0) {
-                // Clear existing path - need to handle this more carefully
-                // Don't free the initial "/bin" as it's a string literal
-                for (int j = 1; path[j] != NULL; j++) {
+                // Clear existing path (skip "/bin")
+                for (int j = 1; path[j]; j++) {
                     free(path[j]);
                     path[j] = NULL;
                 }
@@ -160,20 +173,23 @@ int main(int argc, char *argv[]) {
                 int pathIndex = 0;
                 while ((token = strtok(NULL, " \t")) != NULL && pathIndex < 255) {
                     path[pathIndex++] = strdup(token);
+                    if (!path[pathIndex-1]) {
+                        printError();
+                        break;
+                    }
                 }
                 path[pathIndex] = NULL;
             } else {
-                // External command - execute it
+                // External command
                 pid_t pid = fork();
                 if (pid == -1) {
                     printError();
                 } else if (pid == 0) {
-                    // Child process
-                    if (outputFile != NULL) {
+                    if (outputFile) {
                         int fd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                         if (fd == -1) {
                             printError();
-                            exit(EXIT_FAILURE);
+                            exit(1);
                         }
                         dup2(fd, STDOUT_FILENO);
                         dup2(fd, STDERR_FILENO);
@@ -190,33 +206,31 @@ int main(int argc, char *argv[]) {
                     }
                     args[argIndex] = NULL;
 
-                    // Search for executable in path
-                    for (int j = 0; path[j] != NULL; j++) {
+                    // Search for executable
+                    for (int j = 0; path[j]; j++) {
                         char fullPath[256];
                         snprintf(fullPath, sizeof(fullPath), "%s/%s", path[j], args[0]);
                         if (access(fullPath, X_OK) == 0) {
                             execv(fullPath, args);
                             printError();
-                            exit(EXIT_FAILURE);
+                            exit(1);
                         }
                     }
-                    // Command not found
                     printError();
-                    exit(EXIT_FAILURE);
+                    exit(1);
                 } else {
-                    // Parent process - store child PID
                     children[childCount++] = pid;
                 }
             }
             free(commandCopy);
         }
 
-        // Wait for all child processes to complete
+        // Wait for children
         for (int i = 0; i < childCount; i++) {
             waitpid(children[i], NULL, 0);
         }
 
-        // Clean up command strings
+        // Clean up commands
         for (int i = 0; i < commandCount; i++) {
             free(commands[i]);
         }
@@ -227,5 +241,10 @@ int main(int argc, char *argv[]) {
     if (input != stdin) {
         fclose(input);
     }
+    // Free path entries (skip "/bin")
+    for (int j = 1; path[j]; j++) {
+        free(path[j]);
+    }
     exit(0);
 }
+
