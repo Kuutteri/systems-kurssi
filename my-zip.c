@@ -4,6 +4,7 @@
 void packFile(FILE *input, int *length, int *prevChar) {
     int nextChar = EOF;
 
+    //Reads all of the characters from the file
     while ((nextChar = fgetc(input)) != EOF) {
         if (nextChar == *prevChar) {
             (*length)++;
@@ -29,6 +30,7 @@ int main(int argc, char *argv[]) {
     int argIndex = 1;
     while (argIndex < argc) {
         FILE *input = fopen(argv[argIndex], "r");
+        //If file its unable to be opened, return 1
         if (input == NULL) {
             printf("my-zip: cannot open file\n");
             return 1;
@@ -38,9 +40,11 @@ int main(int argc, char *argv[]) {
         argIndex++;
     }
 
+    //remaining counts to stdout
     if (length > 0) {
         fwrite(&length, sizeof(int), 1, stdout);
         fputc(prevChar, stdout);
     }
+    //Return 0 for successful
     return 0;
 }
