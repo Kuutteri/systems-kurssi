@@ -1,0 +1,7 @@
+curpath
+ls -a
+echo contents of the batch file:
+cat batch.txt
+mkdir batchTestDir
+cd batchTestDir
+curpath
