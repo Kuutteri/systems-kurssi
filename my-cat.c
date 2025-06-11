@@ -3,6 +3,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
+        //no files, return 0
         return 0;
     }
 
@@ -10,6 +11,7 @@ int main(int argc, char *argv[]) {
     while (index < argc) {
         FILE *fp = fopen(argv[index], "r");
         if (fp == NULL) {
+            //error opening file, return 1
             printf("wcat: cannot open file\n");
             return 1;
         }
@@ -22,5 +24,6 @@ int main(int argc, char *argv[]) {
         index++;
     }
     
+    //return 0 for successful run
     return 0;
 }
