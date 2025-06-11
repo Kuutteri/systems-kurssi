@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
+        //search not specified, return 1
         printf("my-grep: searchterm [file ...]\n");
         exit(1);
     }
@@ -29,6 +30,7 @@ int main(int argc, char *argv[]) {
             arg_index++;
         }
     } else {
+        // no files, read from stdin
         while (getline(&buffer, &buf_size, stdin) != -1) {
             if (strstr(buffer, pattern) != NULL) {
                 printf("%s", buffer);
@@ -36,5 +38,6 @@ int main(int argc, char *argv[]) {
         }
     }
     free(buffer);
+    //Return 0 for successful
     return 0;
 }
