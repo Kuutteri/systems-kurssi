@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     if (argc >= 2) {
         input = fopen(argv[1], "r");
         if (!input) {
-            fprintf(stderr, "reverse: cannot open file '%s'\n", argv[1]);
+            fprintf(stderr, "error: cannot open file '%s'\n", argv[1]);
             exit(1);
         }
     }
