@@ -56,41 +56,6 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Check for redirection
-        char *outputFile = NULL;
-        char *redirection = strchr(userInput, '>');
-        if (redirection != NULL) {
-            *redirection = '\0';
-            redirection++;
-            
-            // Skip whitespace after >
-            while (*redirection == ' ' || *redirection == '\t') {
-                redirection++;
-            }
-            
-            // Check for invalid redirection
-            if (strlen(redirection) == 0 || strchr(redirection, '>') != NULL) {
-                printError();
-                continue;
-            }
-            
-            // Extract filename
-            char *filename = strtok(redirection, " \t");
-            if (filename == NULL || strtok(NULL, " \t") != NULL) {
-                printError();
-                continue;
-            }
-            outputFile = filename;
-
-            // Check if command exists before redirection
-            char *cmd = userInput;
-            while (*cmd == ' ' || *cmd == '\t') cmd++;
-            if (*cmd == '\0') {
-                printError();
-                continue;
-            }
-        }
-
         // Split input into parallel commands
         char *commands[256];
         int commandCount = 0;
@@ -125,16 +90,55 @@ int main(int argc, char *argv[]) {
 
         // Process each command
         for (int i = 0; i < commandCount; i++) {
+            // Check for redirection in this command
+            char *outputFile = NULL;
+            char *cmdCopy = strdup(commands[i]);
+            if (!cmdCopy) {
+                printError();
+                continue;
+            }
+            char *redirection = strchr(cmdCopy, '>');
+            if (redirection != NULL) {
+                *redirection = '\0';
+                redirection++;
+                
+                // Skip whitespace after >
+                while (*redirection == ' ' || *redirection == '\t') {
+                    redirection++;
+                }
+                
+                // Check for invalid redirection
+                if (strlen(redirection) == 0 || strchr(redirection, '>') != NULL) {
+                    printError();
+                    free(cmdCopy);
+                    continue;
+                }
+                
+                // Extract filename
+                char *filename = strtok(redirection, " \t");
+                if (filename == NULL || strtok(NULL, " \t") != NULL) {
+                    printError();
+                    free(cmdCopy);
+                    continue;
+                }
+                outputFile = filename;
+            }
+
             // Tokenize command
-            char *commandCopy = strdup(commands[i]);
+            char *commandCopy = strdup(cmdCopy);
             if (!commandCopy) {
                 printError();
+                free(cmdCopy);
                 continue;
             }
             char *token = strtok(commandCopy, " \t");
             
             if (token == NULL) {
+                if (outputFile != NULL) {
+                    printError(); // Error: redirection with no command
+                }
                 free(commandCopy);
+                free(cmdCopy);
                 continue;
             }
 
@@ -147,9 +151,9 @@ int main(int argc, char *argv[]) {
                         free(commands[j]);
                     }
                     free(commandCopy);
+                    free(cmdCopy);
                     free(userInput);
                     if (input != stdin) fclose(input);
-                    // Free path entries (skip "/bin" literal)
                     for (int j = 1; path[j]; j++) {
                         free(path[j]);
                     }
@@ -199,7 +203,7 @@ int main(int argc, char *argv[]) {
                     // Parse arguments
                     char *args[256];
                     int argIndex = 0;
-                    char *argToken = strtok(commands[i], " \t");
+                    char *argToken = strtok(cmdCopy, " \t");
                     while (argToken != NULL && argIndex < 255) {
                         args[argIndex++] = argToken;
                         argToken = strtok(NULL, " \t");
@@ -223,6 +227,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             free(commandCopy);
+            free(cmdCopy);
         }
 
         // Wait for children
@@ -247,4 +252,3 @@ int main(int argc, char *argv[]) {
     }
     exit(0);
 }
-
