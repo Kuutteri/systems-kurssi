@@ -21,7 +21,7 @@ int same_file(const char *path1, const char *path2) {
             stat1.st_ino == stat2.st_ino);
 }
 
-// Main function to read lines from input, reverse them, and write to output
+// Main function to read lines from input and write reversed version to output
 int main(int argc, char *argv[]) {
     FILE *input = stdin;
     FILE *output = stdout;
