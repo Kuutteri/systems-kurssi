@@ -6,22 +6,17 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-// Standard error message as required by assignment
-void printError() {
-    char error_message[30] = "An error has occurred\n";
-    write(STDERR_FILENO, error_message, strlen(error_message));
-}
-
 int main(int argc, char *argv[]) {
     char *userInput = NULL;
-    size_t len = 0;
-    char *path[256] = {"/bin", NULL}; // Initial path
     FILE *input = stdin;
+    size_t len = 0;
+    ssize_t read;
     int batchMode = 0;
+    char *path[256] = {"/bin", NULL};
 
     // Check arguments
     if (argc > 2) {
-        printError();
+        write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
         exit(1);
     }
     
@@ -29,7 +24,7 @@ int main(int argc, char *argv[]) {
     if (argc == 2) {
         input = fopen(argv[1], "r");
         if (input == NULL) {
-            printError();
+            write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
             exit(1);
         }
         batchMode = 1;
@@ -43,7 +38,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Read input line
-        ssize_t read = getline(&userInput, &len, input);
+        read = getline(&userInput, &len, input);
         if (read == -1) {
             break;
         }
@@ -61,7 +56,7 @@ int main(int argc, char *argv[]) {
         int commandCount = 0;
         char *inputCopy = strdup(userInput);
         if (!inputCopy) {
-            printError();
+            write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
             continue;
         }
         char *command = strtok(inputCopy, "&");
@@ -76,7 +71,7 @@ int main(int argc, char *argv[]) {
             if (strlen(command) > 0) {
                 commands[commandCount++] = strdup(command);
                 if (!commands[commandCount-1]) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                     break;
                 }
             }
@@ -88,13 +83,12 @@ int main(int argc, char *argv[]) {
         pid_t children[256];
         int childCount = 0;
 
-        // Process each command
         for (int i = 0; i < commandCount; i++) {
             // Check for redirection in this command
             char *outputFile = NULL;
             char *cmdCopy = strdup(commands[i]);
             if (!cmdCopy) {
-                printError();
+                write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 continue;
             }
             char *redirection = strchr(cmdCopy, '>');
@@ -109,7 +103,7 @@ int main(int argc, char *argv[]) {
                 
                 // Check for invalid redirection
                 if (strlen(redirection) == 0 || strchr(redirection, '>') != NULL) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                     free(cmdCopy);
                     continue;
                 }
@@ -117,7 +111,7 @@ int main(int argc, char *argv[]) {
                 // Extract filename
                 char *filename = strtok(redirection, " \t");
                 if (filename == NULL || strtok(NULL, " \t") != NULL) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                     free(cmdCopy);
                     continue;
                 }
@@ -127,7 +121,7 @@ int main(int argc, char *argv[]) {
             // Tokenize command
             char *commandCopy = strdup(cmdCopy);
             if (!commandCopy) {
-                printError();
+                write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 free(cmdCopy);
                 continue;
             }
@@ -135,7 +129,7 @@ int main(int argc, char *argv[]) {
             
             if (token == NULL) {
                 if (outputFile != NULL) {
-                    printError(); // Error: redirection with no command
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 }
                 free(commandCopy);
                 free(cmdCopy);
@@ -145,7 +139,7 @@ int main(int argc, char *argv[]) {
             // Handle built-in commands
             if (strcmp(token, "exit") == 0) {
                 if (strtok(NULL, " \t") != NULL) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 } else {
                     for (int j = 0; j < commandCount; j++) {
                         free(commands[j]);
@@ -162,9 +156,9 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(token, "cd") == 0) {
                 char *dir = strtok(NULL, " \t");
                 if (dir == NULL || strtok(NULL, " \t") != NULL) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 } else if (chdir(dir) != 0) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 }
             } else if (strcmp(token, "path") == 0) {
                 // Clear existing path (skip "/bin")
@@ -178,7 +172,7 @@ int main(int argc, char *argv[]) {
                 while ((token = strtok(NULL, " \t")) != NULL && pathIndex < 255) {
                     path[pathIndex++] = strdup(token);
                     if (!path[pathIndex-1]) {
-                        printError();
+                        write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                         break;
                     }
                 }
@@ -187,12 +181,12 @@ int main(int argc, char *argv[]) {
                 // External command
                 pid_t pid = fork();
                 if (pid == -1) {
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                 } else if (pid == 0) {
                     if (outputFile) {
                         int fd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                         if (fd == -1) {
-                            printError();
+                            write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                             exit(1);
                         }
                         dup2(fd, STDOUT_FILENO);
@@ -216,11 +210,11 @@ int main(int argc, char *argv[]) {
                         snprintf(fullPath, sizeof(fullPath), "%s/%s", path[j], args[0]);
                         if (access(fullPath, X_OK) == 0) {
                             execv(fullPath, args);
-                            printError();
+                            write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                             exit(1);
                         }
                     }
-                    printError();
+                    write(STDERR_FILENO, "An error has occurred\n", 22); // Standard error message
                     exit(1);
                 } else {
                     children[childCount++] = pid;
